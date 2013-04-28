@@ -1,0 +1,7 @@
+{
+  "apps":{
+    "":{"route":"/", "handler":"localfile"},
+    "*":{"route":"/", "handler":"pipe"}
+  },
+  "hooks":["processtime", "requestcounter"]
+}
