@@ -36,7 +36,9 @@ class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
         for env in envs:
             matched = env['route'].match(self.parsedpath)
             if matched:
-                return env['handler'](self, matched, env.get('config', {})).execute
+                handler = env['handler'](self, matched, env.get('config', {})).execute
+                if 'hooks' in env:
+                    return reduce(lambda first, second: second(self, first), [handler] + env['hooks'])
         return None
 
     def handle(self):
@@ -100,6 +102,8 @@ class ThreadingWSGIServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
             env = copied['apps'][netloc]
             env['route'] = re.compile(env['route'])
             env['handler'] = module.localimport(env['handler'])
+            if 'hooks' in env:
+                env['hooks'] = [module.localimport(hook) for hook in env['hooks']]
 
         copied['hooks'] = [module.localimport(hook) for hook in copied.get('hooks', [])]
 

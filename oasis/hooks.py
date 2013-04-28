@@ -15,7 +15,6 @@ def requestcounter(request, chainfunc):
         count = _counter.get(request.path, 0)
         _counter[request.path] = count + 1
         request.log_message('%s is called %s times', request.path, count + 1)
-
         chainfunc(*args, **kw)
     return _
 
