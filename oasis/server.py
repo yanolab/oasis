@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
 __doc__ = """oasis is HTTP proxy and WSGI container and HTTPS support in a limited way.
@@ -10,17 +9,13 @@ I recomend to use for develop step on your application.
 __version__ = "0.1.0"
 
 import re
-import sys
-import itertools
-import datetime
+import copy
+import pprint
 import urlparse
-
-from optparse import OptionParser
-
 import wsgiref.simple_server as wsgi_server
 import SocketServer as socket_server
 
-import config
+import module
 
 class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
     """
@@ -36,6 +31,13 @@ class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
 
         self.raw_requestline = self.rfile.readline()
         return self.parse_request()
+
+    def _find_handler(self, envs):
+        for env in envs:
+            matched = env['route'].match(self.parsedpath)
+            if matched:
+                return env['handler'](self, matched, env.get('config', {})).execute
+        return None
 
     def handle(self):
         """
@@ -56,69 +58,49 @@ class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
         self.query = query
         self.fragment = fragment
 
-        if not scm == 'http':
+        if not scm in ['', 'http']:
             self.send_error(400, "unsupported protocol : %s" % scm)
             return
 
-        if fragment or not netloc:
-            self.send_error(400, "bad url %s" % self.path)
+        if fragment:
+            self.send_error(400, "fragment is not supported - %s" % self.path)
             return
 
-        matches = config.forwards.get(netloc, {})
+        envs = self.server.config['apps'].get(netloc, None) or self.server.config['apps'].get('*')
 
-        inst = None
+        handler = lambda : self.log_message("cannot found handler.")
 
-        for match in matches:
-            m = match['match'].match(self.parsedpath)
-            if m:
-                cls = match.get('handler', config.default['handler'])
-                handler = cls(self, m, match.get('config', {}))
-                func = handler.execute
-                break
-        else:
-            cls = config.default['handler']
-            handler = cls(self, None, config.default['config'])
-            func = handler.execute
+        if type(envs) == list or type(envs) == tuple:
+            handler = self._find_handler(envs)
+        elif type(envs) == dict:
+            handler = self._find_handler([envs])
 
-        if hasattr(config, 'filters'):
-            func = reduce(lambda chainfunc,filterfunc: filterfunc(self, handler, chainfunc), (func,) + config.filters)
+        if 'hooks' in self.server.config:
+            handler = reduce(lambda first, second: second(self, first), [handler] + self.server.config['hooks'])
 
-        func()
+        handler()
 
-class ThreadingWSGIServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer): pass
 
-def compile_config():
-    """Pre-compile your config file"""
+class ThreadingWSGIServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
+    def __init__(self, server_address, cls, config, debug=False):
+        wsgi_server.WSGIServer.__init__(self, server_address, cls)
+        self.config = self._precompile(config)
 
-    for key in config.forwards:
-        for item in config.forwards[key]:
-            item['match'] = re.compile(item['match'])
+        if debug:
+            self._printconfig(config)
 
-def print_config():
-    import pprint
-    pp = pprint.PrettyPrinter(indent=4)
+    def _printconfig(self, config):
+        pp = pprint.PrettyPrinter(indent=4)
+        pp.pprint(config)
 
-    pp.pprint(config.forwards)
+    def _precompile(self, config):
+        """pre-compile config file"""
+        copied = copy.deepcopy(config)
+        for netloc in copied['apps']:
+            env = copied['apps'][netloc]
+            env['route'] = re.compile(env['route'])
+            env['handler'] = module.localimport(env['handler'])
 
-def main(server_address='127.0.0.1', port=8080):
-    """Start this server default on 127.0.0.1:8080"""
+        copied['hooks'] = [module.localimport(hook) for hook in copied.get('hooks', [])]
 
-    parser = OptionParser()
-    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False, help='print configuration.')
-
-    (options, args) = parser.parse_args(sys.argv[1:])
-
-    if options.verbose:
-        print_config()
-
-    compile_config()
-
-    httpd = ThreadingWSGIServer((server_address, port), HTTPRequestHandler)
-
-    print("Serving HTTP on %s port %s" % httpd.socket.getsockname())
-
-    #httpd.handle_request()
-    httpd.serve_forever()
-
-if __name__ == '__main__':
-    main ()
+        return copied
