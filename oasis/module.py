@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import filters
+import hooks
 import handlers
 
 __localmodules = {'localfile': handlers.LocalFileHandler,
                 'pipe': handlers.PipeHandler,
-                'processtime': filters.processtime,
-                'requestcounter': filters.requestcounter}
+                'processtime': hooks.processtime,
+                'requestcounter': hooks.requestcounter}
 
 def localimport(modulename):
     parts = modulename.split('.')
