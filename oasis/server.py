@@ -12,6 +12,7 @@ import re
 import copy
 import pprint
 import urlparse
+import CGIHTTPServer
 import wsgiref.simple_server as wsgi_server
 import SocketServer as socket_server
 
@@ -83,7 +84,15 @@ class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
 
         handler()
 
-class OasisServerMixIn(object):
+
+class OasisServer(OasisServerMixIn, socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
+    def __init__(self, server_address, cls, config, debug=False):
+        wsgi_server.WSGIServer.__init__(self, server_address, cls)
+        self.config = self._precompile(config)
+
+        if debug:
+            self._printconfig(config)
+
     def _printconfig(self, config):
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(config)
@@ -99,14 +108,3 @@ class OasisServerMixIn(object):
                 env['hooks'] = [module.localimport(hook) for hook in env['hooks']]
 
         copied['hooks'] = [module.localimport(hook) for hook in copied.get('hooks', [])]
-
-        return copied
-
-
-class ThreadingWSGIServer(OasisServerMixIn, socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
-    def __init__(self, server_address, cls, config, debug=False):
-        wsgi_server.WSGIServer.__init__(self, server_address, cls)
-        self.config = self._precompile(config)
-
-        if debug:
-            self._printconfig(config)
