@@ -38,7 +38,8 @@ class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
             if matched:
                 handler = env['handler'](self, matched, env.get('config', {})).execute
                 if 'hooks' in env:
-                    return reduce(lambda first, second: second(self, first), [handler] + env['hooks'])
+                    handler = reduce(lambda first, second: second(self, first), [handler] + env['hooks'])
+                return handler
         return None
 
     def handle(self):
@@ -82,15 +83,7 @@ class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
 
         handler()
 
-
-class ThreadingWSGIServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
-    def __init__(self, server_address, cls, config, debug=False):
-        wsgi_server.WSGIServer.__init__(self, server_address, cls)
-        self.config = self._precompile(config)
-
-        if debug:
-            self._printconfig(config)
-
+class OasisServerMixIn(object):
     def _printconfig(self, config):
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(config)
@@ -108,3 +101,12 @@ class ThreadingWSGIServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
         copied['hooks'] = [module.localimport(hook) for hook in copied.get('hooks', [])]
 
         return copied
+
+
+class ThreadingWSGIServer(OasisServerMixIn, socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
+    def __init__(self, server_address, cls, config, debug=False):
+        wsgi_server.WSGIServer.__init__(self, server_address, cls)
+        self.config = self._precompile(config)
+
+        if debug:
+            self._printconfig(config)
