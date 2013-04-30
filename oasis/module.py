@@ -5,6 +5,8 @@ import handlers
 
 __localmodules = {'localfile': handlers.LocalFileHandler,
                 'pipe': handlers.PipeHandler,
+                'cgi': handlers.CGIHandler,
+                'wsgi': handlers.WSGIHandler,
                 'processtime': hooks.processtime,
                 'requestcounter': hooks.requestcounter}
 

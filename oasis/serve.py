@@ -6,7 +6,7 @@ import sys
 import json
 from optparse import OptionParser
 
-from server import OasisServer as WSGIServer, HTTPRequestHandler
+from server import OasisServer, OasisRequestHandler
 
 def main(args):
     """Start this server default on 127.0.0.1:8080"""
@@ -18,17 +18,13 @@ def main(args):
     parser.add_option('-c', '--config', dest='configfile', default=configfile, help='config file.')
     parser.add_option('-a', '--address', dest='address', default='127.0.0.1', help='server address.')
     parser.add_option('-p', '--port', dest='port', default=8080, type=int, help='server port.')
-    parser.add_option('-m', '--mode', dest='mode', default='wsgi', choice=["wsgi", "cgi"], help='wsgi or cgi')
 
     (options, args) = parser.parse_args(args)
 
     with open(options.configfile) as f:
         config = json.load(f)
 
-    if options.mode == "wsgi":
-        httpd = WSGIServer((options.address, options.port), HTTPRequestHandler, config, options.verbose)
-    else:
-        httpd = CGIServer((options.address, options.port), HTTPRequestHandler, config, options.verbose)
+    httpd = OasisServer((options.address, options.port), OasisRequestHandler, config, options.verbose)
 
     print("Serving HTTP on %s port %s" % httpd.socket.getsockname())
 

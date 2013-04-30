@@ -12,13 +12,14 @@ import re
 import copy
 import pprint
 import urlparse
-import CGIHTTPServer
+import SimpleHTTPServer
 import wsgiref.simple_server as wsgi_server
 import SocketServer as socket_server
 
 import module
 
-class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
+
+class OasisRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     """
     This handler is created instance for each request.
     """
@@ -35,12 +36,13 @@ class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
 
     def _find_handler(self, envs):
         for env in envs:
-            matched = env['route'].match(self.parsedpath)
-            if matched:
-                handler = env['handler'](self, matched, env.get('config', {})).execute
-                if 'hooks' in env:
-                    handler = reduce(lambda first, second: second(self, first), [handler] + env['hooks'])
-                return handler
+            for route in env['route']:
+                matched = route.match(self.parsedpath)
+                if matched:
+                    handler = env['handler'](self, matched, env.get('config', {})).execute
+                    if 'hooks' in env:
+                        handler = reduce(lambda first, second: second(self, first), [handler] + env['hooks'])
+                    return handler
         return None
 
     def handle(self):
@@ -85,10 +87,11 @@ class HTTPRequestHandler(wsgi_server.WSGIRequestHandler):
         handler()
 
 
-class OasisServer(OasisServerMixIn, socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
+class OasisServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
     def __init__(self, server_address, cls, config, debug=False):
         wsgi_server.WSGIServer.__init__(self, server_address, cls)
         self.config = self._precompile(config)
+        self.debug = debug
 
         if debug:
             self._printconfig(config)
@@ -97,14 +100,31 @@ class OasisServer(OasisServerMixIn, socket_server.ThreadingMixIn, wsgi_server.WS
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(config)
 
+    def _compile_routes(self, routes):
+        if type(routes) in [list, tuple]:
+            return map(re.compile, routes)
+        elif type(routes) in [str, unicode]:
+            return [re.compile(routes)]
+        return []
+
+    def _compile(self, env):
+        copied = copy.deepcopy(env)
+        copied['route'] = self._compile_routes(copied['route'])
+        copied['handler'] = module.localimport(copied['handler'])
+        if 'hooks' in copied:
+            copied['hooks'] = [module.localimport(hook) for hook in copied['hooks']]
+
+        return copied
+
     def _precompile(self, config):
         """pre-compile config file"""
         copied = copy.deepcopy(config)
         for netloc in copied['apps']:
-            env = copied['apps'][netloc]
-            env['route'] = re.compile(env['route'])
-            env['handler'] = module.localimport(env['handler'])
-            if 'hooks' in env:
-                env['hooks'] = [module.localimport(hook) for hook in env['hooks']]
+            envs = copied['apps'][netloc]
+            if type(envs) == list or type(envs) == tuple:
+                copied['apps'][netloc] = [self._compile(env) for env in envs]
+            elif type(envs) == dict:
+                copied['apps'][netloc] = self._compile(envs)
 
         copied['hooks'] = [module.localimport(hook) for hook in copied.get('hooks', [])]
+        return copied

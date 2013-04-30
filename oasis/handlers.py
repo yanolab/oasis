@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import ssl
 import select
 import socket
@@ -9,33 +10,33 @@ import urllib
 import urlparse
 import posixpath
 import mimetypes
+import CGIHTTPServer
 import wsgiref.handlers
 import wsgiref.simple_server as wsgi_server
 
-class WSGIHandler:
+import module
+
+class WSGIHandler(wsgi_server.WSGIRequestHandler):
+    attributes = ['request', 'client_address', 'server', 'rfile',
+                  'wfile', 'raw_requestline', 'command', 'path',
+                  'headers', 'requestline', 'request_version']
+
     def __init__(self, request, match, config={}):
-        self._handler = wsgi_server.ServerHandler(request.rfile, request.wfile, request.get_stderr(), request.get_environ())
-        self._handler.request_handler = request
         self.config = config
+        self.match = match
+
+        for attr in self.attributes:
+            setattr(self, attr, getattr(request, attr))
+
+        self._handler = wsgi_server.ServerHandler(self.rfile, self.wfile, self.get_stderr(), self.get_environ())
+        self._handler.request_handler = self
+        self.application = module.localimport(self.config.get('app'))
 
     def execute(self):
-        self._handler.run(self.config.get('application', self._envdump))
+        self._handler.run(self.application)
 
-    def _envdump(self, env, start_response):
-        from StringIO import StringIO
-        stdout = StringIO()
-        print >>stdout, "Hello world!"
-        print >>stdout
 
-        h = env.items(); h.sort()
-        for k,v in h:
-            print >>stdout, k,'=', repr(v)
-
-        start_response("200 OK", [('Content-Type','text/plain')])
-
-        return [stdout.getvalue()]
-
-class PipeHandler:
+class PipeHandler(object):
     def __init__(self, request, match, config={}):
         self.request = request
         self.host = config.get('host', request.host)
@@ -86,7 +87,8 @@ class PipeHandler:
             if timeout >= self._timeout:
                 break
 
-class LocalFileHandler:
+
+class LocalFileHandler(object):
     def __init__(self, request, match, config={}):
         self.request = request
         self.path = config.get('path', request.parsedpath)
@@ -133,18 +135,7 @@ class LocalFileHandler:
         return fileobj
 
     def translate_path(self, path):
-        path = path.split('?',1)[0]
-        path = path.split('#',1)[0]
-        path = posixpath.normpath(urllib.unquote(path))
-        words = path.split('/')
-        words = filter(None, words)
-        path = self.config.get('root', os.getcwd())
-        for word in words:
-            drive, word = os.path.splitdrive(word)
-            head, word = os.path.split(word)
-            if word in (os.curdir, os.pardir): continue
-            path = os.path.join(path, word)
-        return path
+        return _translate_path(self.config, path)
 
     def copyfile(self, source, outputfile):
         shutil.copyfileobj(source, outputfile)
@@ -152,3 +143,49 @@ class LocalFileHandler:
     def guess_type(self, path):
         base, ext = posixpath.splitext(path)
         return mimetypes.types_map.get(ext.lower(), 'application/octet-stream')
+
+
+class CGIHandler(CGIHTTPServer.CGIHTTPRequestHandler):
+    attributes = ['request', 'client_address', 'server', 'rfile',
+                  'wfile', 'raw_requestline', 'command',
+                  'headers', 'requestline', 'request_version']
+
+    def __init__(self, request, match, config={}):
+        self.original_request = request
+        self.path = config.get('path', request.parsedpath)
+        self.config = config
+        self.match = match
+
+        for attr in self.attributes:
+            setattr(self, attr, getattr(request, attr))
+
+    def is_cgi(self):
+        self.cgi_info = CGIHTTPServer._url_collapse_path_split(self.path)
+        path = self.translate_path(self.path)
+        if os.path.exists(path):
+            return os.stat(path).st_mode & 0111 != 0
+        return False
+
+    def translate_path(self, path):
+        return _translate_path(self.config, path)
+
+    def execute(self):
+        if self.is_cgi():
+            self.run_cgi()
+        else:
+            LocalFileHandler(self.original_request, self.match, self.config).execute()
+
+
+def _translate_path(config, path):
+    path = path.split('?',1)[0]
+    path = path.split('#',1)[0]
+    path = posixpath.normpath(urllib.unquote(path))
+    words = path.split('/')
+    words = filter(None, words)
+    path = config.get('root', os.getcwd())
+    for word in words:
+        drive, word = os.path.splitdrive(word)
+        head, word = os.path.split(word)
+        if word in (os.curdir, os.pardir): continue
+        path = os.path.join(path, word)
+    return path
