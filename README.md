@@ -6,6 +6,10 @@ Requirements
 ------------
 * Python 2.7 or later (not support 3.x)
 
+Status
+------
+[![Build Status](https://travis-ci.org/yanolab/oasis.png?branch=master)](https://travis-ci.org/yanolab/oasis)
+
 Features
 --------
 * nothing
