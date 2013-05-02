@@ -27,5 +27,6 @@ setup(
     url='https://github.com/yanolab/oasis',
     license='MIT',
     packages=['oasis', 'oasis.wsgi'],
-    package_data={'oasis': ['default.json']}
+    package_data={'oasis': ['default.json']},
+    test_suite='test.test.suite'
 )
