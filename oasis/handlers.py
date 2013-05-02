@@ -112,6 +112,7 @@ class LocalFileHandler(object):
             path = path.format(*self.match.groups(), **dict(path=self.path, **self.match.groupdict()))
 
         path = self.translate_path(path or self.path)
+        self.request.log_message("Local-Path: %s", path)
 
         if os.path.isdir(path):
             self.request.send_response(301)
