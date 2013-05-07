@@ -2,9 +2,9 @@
 
 from setuptools import setup
 
-version = '0.1.0'
+version = '0.9.0'
 name = 'oasis'
-short_description = 'a simple multifunction server (http, proxy, cgi, wsgi)'
+short_description = 'A simple HTTP, PROXY, CGI, WSGI server'
 with open("README.md") as f:
     long_description = f.read()
 
@@ -27,6 +27,5 @@ setup(
     url='https://github.com/yanolab/oasis',
     license='MIT',
     packages=['oasis', 'oasis.wsgi'],
-    package_data={'oasis': ['default.json']},
     test_suite='test.test.suite'
 )
