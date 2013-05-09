@@ -148,7 +148,7 @@ class LocalFileHandler(object):
 
 class CGIHandler(CGIHTTPServer.CGIHTTPRequestHandler):
     attributes = ['request', 'client_address', 'server', 'rfile',
-                  'wfile', 'raw_requestline', 'command',
+                  'wfile', 'raw_requestline', 'command', 'query',
                   'headers', 'requestline', 'request_version']
 
     def __init__(self, request, match, config={}):
@@ -161,7 +161,7 @@ class CGIHandler(CGIHTTPServer.CGIHTTPRequestHandler):
             setattr(self, attr, getattr(request, attr))
 
     def is_cgi(self):
-        self.cgi_info = CGIHTTPServer._url_collapse_path_split(self.path)
+        self.cgi_info = CGIHTTPServer._url_collapse_path_split(self.path + "?" + self.query)
         path = self.translate_path(self.path)
         if os.path.exists(path):
             return os.stat(path).st_mode & 0111 != 0
@@ -172,7 +172,11 @@ class CGIHandler(CGIHTTPServer.CGIHTTPRequestHandler):
 
     def execute(self):
         if self.is_cgi():
+            currentdir = os.getcwd()
+            os.chdir(os.path.dirname(self.translate_path(self.path)))
+            self.cgi_info = ("./", self.cgi_info[1])
             self.run_cgi()
+            os.chdir(currentdir)
         else:
             LocalFileHandler(self.original_request, self.match, self.config).execute()
 
