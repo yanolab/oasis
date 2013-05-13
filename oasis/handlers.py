@@ -43,7 +43,12 @@ class PipeHandler(object):
         self.ssl = config.get('ssl', False)
         self.port = config.get('port', request.port)
         self._timeout = config.get('timeout', 30) * 10 # selectが0.1s刻みなので10倍しておく
-        self.params = ('', '', request.parsedpath, request.params, request.query, '')
+
+        redirect_to = config.get('redirect_to', None)
+        if redirect_to:
+            redirect_to = redirect_to.format(*match.groups(), **dict(path=request.path, **match.groupdict()))
+
+        self.params = ('', '', redirect_to or request.parsedpath, request.params, request.query, '')
         self.config = config
 
     def _send(self, sock, msg):
