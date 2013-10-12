@@ -12,10 +12,6 @@ Requirements
 
 How to Install
 --------------
-If you can use stable version of oasis, run the following command.
-
-    $ pip install oasis
-
 You want to use latest version, you can use git clone from github.com.
 
     $ git clone https://github.com/yanolab/oasis.git
