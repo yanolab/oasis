@@ -8,7 +8,7 @@ Status
 
 Requirements
 ------------
-* Python 2.7 or later (not support 3.x)
+* Python 2.6 - 2.7 (dose not support python 3.x)
 
 How to Install
 --------------
