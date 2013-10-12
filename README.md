@@ -1,24 +1,17 @@
 oasis
 =====
-A simple HTTP, PROXY, CGI, WSGI server
+oasis is a simple HTTP, PROXY, CGI, WSGI server written in pure python.
+
+Status
+------------------
+[![Build Status](https://travis-ci.org/yanolab/oasis.png?branch=master)](https://travis-ci.org/yanolab/oasis)
 
 Requirements
 ------------
 * Python 2.7 or later (not support 3.x)
 
-Status
-------
-[![Build Status](https://travis-ci.org/yanolab/oasis.png?branch=master)](https://travis-ci.org/yanolab/oasis)
-
-Features
---------
-* HTTP(Limited HTTPS)
-* Proxy
-* CGI
-* WSGI
-
-Installation
-------------
+How to Install
+--------------
 If you can use stable version of oasis, run the following command.
 
     $ pip install oasis
@@ -62,16 +55,18 @@ Configuration is JSON format. Default configuration is there.
   "hooks":["processtime", "requestcounter"]
 }
 ```
+You can write the configuration of each domain under the "apps".
+If domain is empty ('""'), it means 127.0.0.1, and '"*"' means any domain.
+If you want to use proxy the specification domain, write domain on there.
 
-You must write your configuration under "apps".
-'""' means 127.0.0.1, and '"*"' means any domain.
-If you want proxy the specification domain, write domain on there. For example `"www.google.com": {"route":"/", "handler":"localfile"}` is any request for www.google.com to local file.
-Handler is the only one on each route. Handlers are localfile(WWW), pipe(PROXY), cgi, wsgi.
+For example, `"www.google.com": {"route":"/", "handler":"localfile"}` is proxy from any request for www.google.com porxy to local file.
+
+Handler is the only one on each route.
+Handlers are localfile(WWW), pipe(PROXY), cgi, wsgi.
 Global hooks is under "hooks". Each route can have "hook".
 If you want to use your handler, write your script import path on "handler".
 
 History
 -------
-0.9.0 (2013-5-7)
-~~~~~~~~~~~~~~~~~~
-* first release
+* 2013-5-7 v0.9.0 first release
+* 2013-10-12 v0.9.1 fixed document
