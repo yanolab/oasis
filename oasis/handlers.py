@@ -166,7 +166,7 @@ class CGIHandler(CGIHTTPServer.CGIHTTPRequestHandler):
             setattr(self, attr, getattr(request, attr))
 
     def is_cgi(self):
-        self.cgi_info = CGIHTTPServer._url_collapse_path_split(self.path + "?" + self.query)
+        self.cgi_info = _url_collapse_path_split(self.path + "?" + self.query)
         path = self.translate_path(self.path)
         if os.path.exists(path):
             return os.stat(path).st_mode & 0111 != 0
@@ -199,3 +199,42 @@ def _translate_path(config, path):
         if word in (os.curdir, os.pardir): continue
         path = os.path.join(path, word)
     return path
+
+# copy from python CGIHTTPServer.py
+def _url_collapse_path_split(path):
+    """
+    Given a URL path, remove extra '/'s and '.' path elements and collapse
+    any '..' references.
+
+    Implements something akin to RFC-2396 5.2 step 6 to parse relative paths.
+
+    Returns: A tuple of (head, tail) where tail is everything after the final /
+    and head is everything before it.  Head will always start with a '/' and,
+    if it contains anything else, never have a trailing '/'.
+
+    Raises: IndexError if too many '..' occur within the path.
+    """
+    # Similar to os.path.split(os.path.normpath(path)) but specific to URL
+    # path semantics rather than local operating system semantics.
+    path_parts = []
+    for part in path.split('/'):
+        if part == '.':
+            path_parts.append('')
+        else:
+            path_parts.append(part)
+    # Filter out blank non trailing parts before consuming the '..'.
+    path_parts = [part for part in path_parts[:-1] if part] + path_parts[-1:]
+    if path_parts:
+        tail_part = path_parts.pop()
+    else:
+        tail_part = ''
+    head_parts = []
+    for part in path_parts:
+        if part == '..':
+            head_parts.pop()
+        else:
+            head_parts.append(part)
+    if tail_part and tail_part == '..':
+        head_parts.pop()
+        tail_part = ''
+    return ('/' + '/'.join(head_parts), tail_part)
