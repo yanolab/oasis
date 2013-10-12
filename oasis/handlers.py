@@ -6,13 +6,26 @@ import ssl
 import select
 import socket
 import shutil
-import urllib
-import urlparse
+
+if sys.version_info[0] >= 3:
+    import urllib.parse as urllib
+    urlparse = urllib
+    import http.server as CGIHTTPServer
+else:
+    import urllib
+    import urlparse
+    import CGIHTTPServer
+
 import posixpath
 import mimetypes
-import CGIHTTPServer
+
+
 import wsgiref.handlers
 import wsgiref.simple_server as wsgi_server
+
+
+if sys.version_info[0] >= 3:
+    sys.path.append(os.path.dirname(__file__))
 
 import module
 
@@ -62,6 +75,9 @@ class PipeHandler(object):
         self.config = config
 
     def _send(self, sock, msg):
+        if sys.version_info[0] >= 3:
+            msg = msg.encode('utf-8')
+
         sock.send(msg)
 
     def execute(self):
@@ -82,7 +98,7 @@ class PipeHandler(object):
             self._send(sock, "\r\n")
 
             self._pipe(sock)
-        except socket.error, arg:
+        except socket.error as arg:
             self.request.send_error(500,
                                     'connect failed to %s:%s, %s' % (self.host, self.port, arg))
 
@@ -190,7 +206,7 @@ class CGIHandler(CGIHTTPServer.CGIHTTPRequestHandler):
         self.cgi_info = _url_collapse_path_split(self.path + "?" + self.query)
         path = self.translate_path(self.path)
         if os.path.exists(path):
-            return os.stat(path).st_mode & 0111 != 0
+            return os.stat(path).st_mode & 0o111 != 0
         return False
 
     def translate_path(self, path):

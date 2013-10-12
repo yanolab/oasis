@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import time
-import urllib
+
+if sys.version_info[0] >= 3:
+    from urllib.request import URLopener
+    def urlopen(url, proxies=None):
+        return URLopener(proxies).open(url)
+else:
+    from urllib import urlopen
+
 import unittest
 import threading
 from functools import partial
@@ -21,7 +29,7 @@ class ServerTest(unittest.TestCase):
         th.start()
         time.sleep(1)
 
-        res = urllib.urlopen("http://127.0.0.1:8080/README.md")
+        res = urlopen("http://127.0.0.1:8080/README.md")
 
         self.assertEqual(res.getcode(), 200, "status code must be 200")
         res.read()
@@ -36,7 +44,7 @@ class ServerTest(unittest.TestCase):
         th.start()
         time.sleep(1)
 
-        res = urllib.urlopen("http://127.0.0.1:8080/wsgi")
+        res = urlopen("http://127.0.0.1:8080/wsgi")
 
         self.assertEqual(res.getcode(), 200, "status code must be 200")
         res.read()
@@ -51,7 +59,7 @@ class ServerTest(unittest.TestCase):
         th.start()
         time.sleep(1)
 
-        res = urllib.urlopen("http://yanolab.github.io/", proxies={"http":"http://127.0.0.1:8080"})
+        res = urlopen("http://yanolab.github.io/", proxies={"http":"http://127.0.0.1:8080"})
 
         self.assertEqual(res.getcode(), 200, "status code must be 200")
         res.read()
@@ -69,13 +77,13 @@ class ServerTest(unittest.TestCase):
         cginame = "hello.cgi"
         with open(cginame, "w") as f:
             f.write("#! /usr/bin/env python\n\n")
-            f.write("print 'Content-Type: text/plain\\n\\n'\n")
-            f.write("print 'hello'")
+            f.write("print('Content-Type: text/plain\\n\\n')\n")
+            f.write("print('hello')")
 
         import os
-        os.chmod(cginame, 0777)
+        os.chmod(cginame, 0o777)
 
-        res = urllib.urlopen("http://127.0.0.1:8080/%s" % cginame)
+        res = urlopen("http://127.0.0.1:8080/%s" % cginame)
 
         self.assertEqual(res.getcode(), 200, "status code must be 200")
         res.read()

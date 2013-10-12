@@ -8,12 +8,29 @@ Python default WSGIServer is easy container, so this server is so slowly.
 __version__ = "0.1.0"
 
 import re
+import sys
 import copy
 import pprint
-import urlparse
-import SimpleHTTPServer
+
+if sys.version_info[0] >= 3:
+    import urllib.parse as urlparse
+    import http.server as SimpleHTTPServer
+    import socketserver as socket_server
+else:
+    import urlparse
+    import SimpleHTTPServer
+    import SocketServer as socket_server
+
 import wsgiref.simple_server as wsgi_server
-import SocketServer as socket_server
+
+if sys.version_info[0] >= 3:
+    import os
+    sys.path.append(os.path.dirname(__file__))
+
+    strtypes = [str, bytes]
+    from functools import reduce
+else:
+    strtypes = [str, unicode]
 
 import module
 
@@ -113,7 +130,7 @@ class OasisServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
 
         if type(routes) in [list, tuple]:
             return map(re.compile, routes)
-        elif type(routes) in [str, unicode]:
+        elif type(routes) in strtypes:
             return [re.compile(routes)]
         return []
 
