@@ -2,7 +2,7 @@
 
 from setuptools import setup
 
-version = '0.9.0'
+version = '0.9.1'
 name = 'oasis'
 short_description = 'A simple HTTP, PROXY, CGI, WSGI server'
 with open("README.md") as f:
