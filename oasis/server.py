@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-__doc__ = """oasis is HTTP proxy and WSGI container and HTTPS support in a limited way.
+__doc__ = """oasis is HTTP proxy and WSGI, CGI container and HTTPS support in a limited way.
 oasis works on WSGIServer and ThreadingServer with python default module.
-Python default WSGIServer is easy container, so this server is not fast.
-I recomend to use for develop step on your application.
+Python default WSGIServer is easy container, so this server is so slowly.
 """
 
 __version__ = "0.1.0"
@@ -22,6 +21,7 @@ import module
 class OasisRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     """
     This handler is created instance for each request.
+    There is a need to implement the execute method to extend this class to implement the handler.
     """
 
     server_version = "oasis/" + __version__
@@ -35,13 +35,16 @@ class OasisRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return self.parse_request()
 
     def _find_handler(self, envs):
+        """find a handler that matches the setting."""
+
         for env in envs:
             for route in env['route']:
                 matched = route.match(self.parsedpath)
                 if matched:
                     handler = env['handler'](self, matched, env.get('config', {})).execute
                     if 'hooks' in env:
-                        handler = reduce(lambda first, second: second(self, first), [handler] + env['hooks'])
+                        handler = reduce(lambda first, second: second(self, first),
+                                         [handler] + env['hooks'])
                     return handler
         return None
 
@@ -74,7 +77,7 @@ class OasisRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         envs = self.server.config['apps'].get(netloc, None) or self.server.config['apps'].get('*')
 
-        handler = lambda : self.log_message("cannot found handler.")
+        handler = lambda: self.log_message("cannot found handler.")
 
         if type(envs) == list or type(envs) == tuple:
             handler = self._find_handler(envs)
@@ -82,12 +85,15 @@ class OasisRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             handler = self._find_handler([envs])
 
         if 'hooks' in self.server.config:
-            handler = reduce(lambda first, second: second(self, first), [handler] + self.server.config['hooks'])
+            handler = reduce(lambda first, second: second(self, first),
+                             [handler] + self.server.config['hooks'])
 
         handler()
 
 
 class OasisServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
+    """WSGI base server implementation"""
+
     def __init__(self, server_address, cls, config, debug=False):
         wsgi_server.WSGIServer.__init__(self, server_address, cls)
         self.config = self._precompile(config)
@@ -97,10 +103,14 @@ class OasisServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
             self._printconfig(config)
 
     def _printconfig(self, config):
+        """print configuration for debug"""
+
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(config)
 
     def _compile_routes(self, routes):
+        """compile the route in configuration"""
+
         if type(routes) in [list, tuple]:
             return map(re.compile, routes)
         elif type(routes) in [str, unicode]:
@@ -108,6 +118,8 @@ class OasisServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
         return []
 
     def _compile(self, env):
+        """configuration to python object"""
+
         copied = copy.deepcopy(env)
         copied['route'] = self._compile_routes(copied['route'])
         copied['handler'] = module.localimport(copied['handler'])
@@ -118,6 +130,7 @@ class OasisServer(socket_server.ThreadingMixIn, wsgi_server.WSGIServer):
 
     def _precompile(self, config):
         """pre-compile config file"""
+
         copied = copy.deepcopy(config)
         for netloc in copied['apps']:
             envs = copied['apps'][netloc]

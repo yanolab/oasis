@@ -16,7 +16,10 @@ import wsgiref.simple_server as wsgi_server
 
 import module
 
+
 class WSGIHandler(wsgi_server.WSGIRequestHandler):
+    """WSGI handler"""
+
     attributes = ['request', 'client_address', 'server', 'rfile',
                   'wfile', 'raw_requestline', 'command', 'path',
                   'headers', 'requestline', 'request_version']
@@ -28,7 +31,10 @@ class WSGIHandler(wsgi_server.WSGIRequestHandler):
         for attr in self.attributes:
             setattr(self, attr, getattr(request, attr))
 
-        self._handler = wsgi_server.ServerHandler(self.rfile, self.wfile, self.get_stderr(), self.get_environ())
+        self._handler = wsgi_server.ServerHandler(self.rfile,
+                                                  self.wfile,
+                                                  self.get_stderr(),
+                                                  self.get_environ())
         self._handler.request_handler = self
         self.application = module.localimport(self.config.get('app'))
 
@@ -37,16 +43,20 @@ class WSGIHandler(wsgi_server.WSGIRequestHandler):
 
 
 class PipeHandler(object):
+    """proxy handler"""
+
     def __init__(self, request, match, config={}):
         self.request = request
         self.host = config.get('host', request.host)
         self.ssl = config.get('ssl', False)
         self.port = config.get('port', request.port)
-        self._timeout = config.get('timeout', 30) * 10 # selectが0.1s刻みなので10倍しておく
+        # 1/10 second scale convert to second scale
+        self._timeout = config.get('timeout', 30) * 10
 
         redirect_to = config.get('redirect_to', None)
         if redirect_to:
-            redirect_to = redirect_to.format(*match.groups(), **dict(path=request.path, **match.groupdict()))
+            redirect_to = redirect_to.format(*match.groups(),
+                                             **dict(path=request.path, **match.groupdict()))
 
         self.params = ('', '', redirect_to or request.parsedpath, request.params, request.query, '')
         self.config = config
@@ -62,7 +72,9 @@ class PipeHandler(object):
 
         try:
             sock.connect((self.host, self.port))
-            self._send(sock, "%s %s %s\r\n" % (self.request.command, urlparse.urlunparse(self.params), self.request.request_version))
+            self._send(sock, "%s %s %s\r\n" % (self.request.command,
+                                               urlparse.urlunparse(self.params),
+                                               self.request.request_version))
             self.request.headers['Connection'] = 'close'
             del self.request.headers['Proxy-Connection']
             for key_val in self.request.headers.items():
@@ -71,13 +83,17 @@ class PipeHandler(object):
 
             self._pipe(sock)
         except socket.error, arg:
-            self.request.send_error(500, 'connect failed to %s:%s, %s' % (self.host, self.port, arg))
+            self.request.send_error(500,
+                                    'connect failed to %s:%s, %s' % (self.host, self.port, arg))
 
     def _pipe(self, sock):
         timeout = 0
         while True:
             timeout += 1
-            sockets, w, errors = select.select([self.request.connection, sock], [], [self.request.connection, sock], 0.1)
+            sockets, w, errors = select.select([self.request.connection, sock],
+                                               [],
+                                               [self.request.connection, sock],
+                                               0.1)
 
             if errors:
                 break
@@ -94,6 +110,8 @@ class PipeHandler(object):
 
 
 class LocalFileHandler(object):
+    """local content serve handler"""
+
     def __init__(self, request, match, config={}):
         self.request = request
         self.path = config.get('path', request.parsedpath)
@@ -114,7 +132,8 @@ class LocalFileHandler(object):
 
         path = self.config.get('path', None)
         if path:
-            path = path.format(*self.match.groups(), **dict(path=self.path, **self.match.groupdict()))
+            path = path.format(*self.match.groups(),
+                               **dict(path=self.path, **self.match.groupdict()))
 
         path = self.translate_path(path or self.path)
         self.request.log_message("Local-Path: %s", path)
@@ -152,6 +171,8 @@ class LocalFileHandler(object):
 
 
 class CGIHandler(CGIHTTPServer.CGIHTTPRequestHandler):
+    """CGI handler"""
+
     attributes = ['request', 'client_address', 'server', 'rfile',
                   'wfile', 'raw_requestline', 'command', 'query',
                   'headers', 'requestline', 'request_version']
@@ -187,8 +208,8 @@ class CGIHandler(CGIHTTPServer.CGIHTTPRequestHandler):
 
 
 def _translate_path(config, path):
-    path = path.split('?',1)[0]
-    path = path.split('#',1)[0]
+    path = path.split('?', 1)[0]
+    path = path.split('#', 1)[0]
     path = posixpath.normpath(urllib.unquote(path))
     words = path.split('/')
     words = filter(None, words)
@@ -196,9 +217,11 @@ def _translate_path(config, path):
     for word in words:
         drive, word = os.path.splitdrive(word)
         head, word = os.path.split(word)
-        if word in (os.curdir, os.pardir): continue
+        if word in (os.curdir, os.pardir):
+            continue
         path = os.path.join(path, word)
     return path
+
 
 # copy from python CGIHTTPServer.py
 def _url_collapse_path_split(path):

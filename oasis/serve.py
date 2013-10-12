@@ -8,14 +8,19 @@ import argparse
 
 from server import OasisServer, OasisRequestHandler
 
+
 def main(args):
     """Start this server default on 127.0.0.1:8080"""
 
     parser = argparse.ArgumentParser(description="oasis")
-    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False, help='print configuration.')
-    parser.add_argument('-c', '--config', dest='configfile', type=argparse.FileType('r'), default=None, help='config file.')
-    parser.add_argument('-a', '--address', dest='address', default='127.0.0.1', help='server address.')
-    parser.add_argument('-p', '--port', dest='port', default=8080, type=int, help='server port.')
+    parser.add_argument('-v', '--verbose', dest='verbose',
+                        action='store_true', help='print configuration.')
+    parser.add_argument('-c', '--config', dest='configfile',
+                        type=argparse.FileType('r'), default=None, help='config file.')
+    parser.add_argument('-a', '--address', dest='address',
+                        default='127.0.0.1', help='server address.')
+    parser.add_argument('-p', '--port', dest='port',
+                        default=8080, type=int, help='server port.')
 
     options = parser.parse_args(args)
 
@@ -26,12 +31,14 @@ def main(args):
         import default
         config = json.loads(default.json)
 
-    httpd = OasisServer((options.address, options.port), OasisRequestHandler, config, options.verbose)
+    httpd = OasisServer((options.address, options.port),
+                        OasisRequestHandler,
+                        config, options.verbose)
 
     print("Serving HTTP on %s port %s" % httpd.socket.getsockname())
 
-    #httpd.handle_request()
     httpd.serve_forever()
+
 
 if __name__ == '__main__':
     main(sys.argv[1:])
